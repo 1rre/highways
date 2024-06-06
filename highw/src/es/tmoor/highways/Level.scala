@@ -13,10 +13,10 @@ class Level(val environment: Environment, data: LevelData) {
 
   val blocks =
     data.blocks.map(block => Block(block.x, block.y, block.w, block.h))
-  val sources =
-    data.sources.map(source => SourcePoint(source.x1, source.y1, source.angle, source.id, source.demand.zipWithIndex.toMap))
   val sinks =
     data.sinks.map(sink => SinkPoint(sink.x1, sink.y1, sink.angle, sink.id))
+  val sources =
+    data.sources.map(source => SourcePoint(source.x1, source.y1, source.angle, source.id, source.demand.zipWithIndex.map((d, i) => sinks(i)->d).toMap))
   val fixedRoads = (sources ++ sinks).map(FixedRoad.apply)
   val roads: Buffer[DrawnRoad] = Buffer()
 

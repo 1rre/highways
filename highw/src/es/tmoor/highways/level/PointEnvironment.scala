@@ -2,6 +2,8 @@ package es.tmoor.highways.level
 
 import org.scalajs.dom.{document, SVGCircleElement}
 import math.{sin, cos}
+import scala.collection.mutable.Buffer
+import org.scalajs.dom.SVGElement
 
 class PointEnvironment(environment: Environment) {
   sealed trait PointLike extends Drawable {
@@ -43,7 +45,7 @@ class PointEnvironment(environment: Environment) {
     val x = x1 + sin(angle) * 0.075 * 2/3d
     val y = y1 - cos(angle) * 0.075
     
-    private var active = false
+    protected var active = false
 
     def activate(): Unit = {
       if (!node.isDefined) draw()
@@ -71,8 +73,50 @@ class PointEnvironment(environment: Environment) {
     }
   }
   
-  case class SourcePoint(x1: Double, y1: Double, angle: Double, id: Int, demand: Map[Int, Int] = Map()) extends FixedPoint {
+  case class SourcePoint(x1: Double, y1: Double, angle: Double, id: Int, demand: Map[SinkPoint, Int] = Map()) extends FixedPoint {
+    final val IdColours = Seq(
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "cyan",
+      "pink",
+      "orange"
+    )
+
     protected val colour = "blue"
+    val demandArrows = Buffer[SVGElement]()
+
+    def clearDemandArrows(): Unit = {
+      demandArrows.foreach(_.remove())
+      demandArrows.clear()
+    }
+    
+    def drawDemandArrows(): Unit = {
+      demand.foreach { (point, demand) =>
+        if (demand > 0) {
+          val line = environment.roadEnvironment.plotLine(x, y, point.x, point.y, IdColours(point.id))
+          line.setAttribute("style", s"fill: none; stroke: ${IdColours(point.id)}; stroke-width: ${demand * 3}px; z-index: 100; opacity: 30%;")
+          demandArrows += line
+        }
+      }
+    }
+
+    override def activate(): Unit = {
+      drawDemandArrows()
+      super.activate()
+    }
+
+    override def deactivate(): Unit = {
+      clearDemandArrows()
+      super.deactivate()
+    }
+
+    override def draw(): Unit = {
+      if (active) drawDemandArrows()
+      else clearDemandArrows()
+      super.draw()
+    }
   }
 
   case class SinkPoint(x1: Double, y1: Double, angle: Double, id: Int) extends FixedPoint {
