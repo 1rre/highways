@@ -2,27 +2,25 @@ package es.tmoor.highways
 
 import org.scalajs.dom.{document, window, SVGSVGElement}
 import es.tmoor.highways.data.LevelData
-import es.tmoor.highways.level.Environment
+import es.tmoor.highways.level._
 import scala.collection.mutable.Buffer
 import es.tmoor.highways.drawing.DrawingHandler
 
-class Level(val environment: Environment, data: LevelData) {
-  import environment.blockEnvironment._
-  import environment.roadEnvironment._
-  import environment.pointEnvironment._
-
-  val blocks =
+class Level(val page: SVGSVGElement, data: LevelData) extends SvgUser {
+  val blocks: Seq[Block] =
     data.blocks.map(block => Block(block.x, block.y, block.w, block.h))
-  val sinks =
+  
+  val sinks: Seq[SinkPoint] =
     data.sinks.map(sink => SinkPoint(sink.x1, sink.y1, sink.angle, sink.id))
-  val sources =
+  
+  val sources: Seq[SourcePoint] =
     data.sources.map(source => SourcePoint(source.x1, source.y1, source.angle, source.id, source.demand.zipWithIndex.map((d, i) => sinks(i)->d).toMap))
-  val fixedRoads = (sources ++ sinks).map(FixedRoad.apply)
+  val fixedRoads: Seq[FixedRoad] = (sources ++ sinks).map(FixedRoad.apply)
   val roads: Buffer[DrawnRoad] = Buffer()
 
   val drawingHandler = DrawingHandler(this)
 
-  val fixedElements = blocks ++ sources ++ sinks ++ fixedRoads :+ drawingHandler
+  val fixedElements = blocks ++ sources ++ sinks ++ fixedRoads
   def changableElements = Nil ++ roads
 
   def draw(): Unit = {
@@ -31,9 +29,10 @@ class Level(val environment: Environment, data: LevelData) {
   }
 
   def run(): Unit = {
+
     draw()
     window.addEventListener("resize", e => {
-      environment.page.innerHTML = ""
+      page.innerHTML = ""
       draw()
     })
   }

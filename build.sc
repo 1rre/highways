@@ -6,4 +6,5 @@ object highw extends ScalaJSModule {
   def ivyDeps = Agg(
     ivy"org.scala-js::scalajs-dom_sjs1:2.2.0"
   )
+  def scalacOptions = Seq("-feature", "-language:implicitConversions")
 }
