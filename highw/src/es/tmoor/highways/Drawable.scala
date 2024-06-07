@@ -16,6 +16,7 @@ trait Drawable extends SvgUser {
     val yc = scaleY(ycs)
     line.setAttribute("style", s"fill: none; stroke: $colour; stroke-width: ${width}px; z-index: 100;")
     line.setAttribute("d", s"M $x1 $y1 Q $xc $yc $x2 $y2")
+    line.setAttribute("marker-end", "url(#arrow)")
     page.appendChild(line)
     line
     

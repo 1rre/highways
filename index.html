@@ -3,7 +3,21 @@
   <head></head>
   <body style="margin: 0; height: 100vh; width: 100vw; overflow: hidden;">
     <!--<img style="position: fixed; left: 0; width: min(100%, 150vh); height: min(100%, 67vw); opacity: 0.2; z-index: -1;" src="file://D:/Downloads/highway.png"/>-->
-    <svg oncontextmenu="return false" style="width:min(100%, 150vh); height:min(100%, 67vw);" id="page-svg"></svg>
+    <svg oncontextmenu="return false" style="width:min(100%, 150vh); height:min(100%, 67vw);" id="page-svg">
+      <defs>
+        <!-- A marker to be used as an arrowhead -->
+        <marker
+          id="arrow"
+          viewBox="0 0 10 10"
+          refX="5"
+          refY="5"
+          markerWidth="6"
+          markerHeight="6"
+          orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" />
+        </marker>
+      </defs>
+    </svg>
     <script type="text/javascript" src="./out/highw/fastOpt.dest/out.js"></script>
   </body>
 </html>

@@ -6,6 +6,7 @@ import es.tmoor.highways.drawing.DrawingHandler
 
 trait DrawingTool extends SvgUser {
   val level: Level
+  def active = level.drawingHandler.isActive(this)
   val page = level.page
   def deactivate(): Unit
   def processScroll(e: WheelEvent): Unit

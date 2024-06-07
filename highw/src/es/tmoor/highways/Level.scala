@@ -7,6 +7,7 @@ import scala.collection.mutable.Buffer
 import es.tmoor.highways.drawing.DrawingHandler
 
 class Level(val page: SVGSVGElement, data: LevelData) extends SvgUser {
+  val drawText = page.innerHTML
   val blocks: Seq[Block] =
     data.blocks.map(block => Block(block.x, block.y, block.w, block.h))
   
@@ -32,7 +33,7 @@ class Level(val page: SVGSVGElement, data: LevelData) extends SvgUser {
 
     draw()
     window.addEventListener("resize", e => {
-      page.innerHTML = ""
+      page.innerHTML = drawText
       draw()
     })
   }

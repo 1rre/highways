@@ -13,6 +13,8 @@ class DrawingHandler(val level: Level) extends SvgUser {
 
   private var activeTool: DrawingTool = selectionTool
 
+  def isActive(tool: DrawingTool): Boolean = tool == activeTool
+
   def activate(tool: DrawingTool): Unit = {
     activeTool.deactivate()
     activeTool = tool

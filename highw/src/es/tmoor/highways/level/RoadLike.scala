@@ -60,27 +60,36 @@ sealed trait RoadLike extends Drawable {
       that match {
         case VLine(x) => Some((x, fx(x)))
         case HLine(y) => Some((fy(y), y))
-        case that: Line if this.m != that.m => None
+        case that: Line if this.m == that.m => None
         case that: Line =>
-        val x = (this.c - that.c) / (this.m - that.m)
-        Some((x, fx(x)))
+        val x = (that.c - this.c) / (this.m - that.m)
+        val p1 = Some((x, fx(x)))
+        val p2 = Some((x, that.fx(x)))
+        p1
       }
     }
   }
-  def points: Seq[(Double, Double)] =
-  path.map { path =>
-    val step = path.getTotalLength() / 100
-    (0 to 100).map { i =>
-      val pos = step * i
-      val point = path.getPointAtLength(pos)
-      (point.x, point.y)
-    }
-  }.getOrElse(Nil)
-  def draw(): Unit
+  def generatePoints() = {
+    path.map { path =>
+      val step = path.getTotalLength() / 100
+      (0 to 100).map { i =>
+        val pos = step * i
+        val point = path.getPointAtLength(pos)
+        (point.x, point.y)
+      }
+    }.getOrElse(Nil)
+  }
+  var pointsCache = generatePoints()
+  def points: Seq[(Double, Double)] = pointsCache
+  def drawRoad(): Unit
+  final def draw(): Unit = {
+    drawRoad()
+    pointsCache = generatePoints()
+  }
 }
 
 case class FixedRoad(val point: FixedPoint)(val page: SVGSVGElement) extends RoadLike {
-  def draw(): Unit = {
+  def drawRoad(): Unit = {
     val line = document.createElementNS("http://www.w3.org/2000/svg", "path").asInstanceOf[SVGPathElement]
     val x1 = scaleX(point.x1)
     val y1 = scaleY(point.y1)
@@ -94,6 +103,8 @@ case class FixedRoad(val point: FixedPoint)(val page: SVGSVGElement) extends Roa
 }
 
 case class DrawnRoad(val sourcePoint: PointLike, val destPoint: PointLike, val inputAngle: Double, var angleSkew: Double = 0d)(val page: SVGSVGElement) extends RoadLike {
+  sourcePoint.outputs += this
+  destPoint.inputs += this
   val addNodes = Buffer[SVGElement]()
   private var activated = false
   def strokeWidth = if activated then 4 else 2
@@ -111,6 +122,7 @@ case class DrawnRoad(val sourcePoint: PointLike, val destPoint: PointLike, val i
   def clearGuidelines(): Unit = {
     addNodes.foreach(_.remove())
     addNodes.clear()
+    pointsCache = generatePoints()
   }
   
   def clear(): Unit = {
@@ -118,11 +130,14 @@ case class DrawnRoad(val sourcePoint: PointLike, val destPoint: PointLike, val i
     path = None
     addNodes.foreach(_.remove())
     addNodes.clear()
+    sourcePoint.outputs -= this
+    destPoint.inputs -= this
   }
   
   def isBehind(x1: Double, y1: Double, x2: Double, y2: Double, angle: Double): Boolean = {
     val a1 = atan2(y2 - y1, x2 - x1)
-    (atan2(y2 - y1, x2 - x1)  - angle).abs % (2*Pi) > Pi
+    print(s"ADIFF: ${(atan2(y2 - y1, x2 - x1) - angle).abs % (2*Pi)}")
+    (atan2(y2 - y1, x2 - x1) - angle).abs % (2*Pi) > Pi
   }
   
   def draw(useGuidelines: Boolean): Unit = {
@@ -133,25 +148,26 @@ case class DrawnRoad(val sourcePoint: PointLike, val destPoint: PointLike, val i
     val midPointX = sourcePoint.x + lengthOnLine * diffX
     val midPointY = sourcePoint.y + lengthOnLine * diffY
     val l1 =
-    if (isBehind(sourcePoint.x, sourcePoint.y, midPointX, midPointY, inputAngle))
-    Line.fromPointAndGradient(midPointX, midPointY, (sourcePoint.x - destPoint.x) / (sourcePoint.y - destPoint.y))
-    else
-    Line.fromPointAndGradient(midPointX, midPointY, -(sourcePoint.x - destPoint.x) / (sourcePoint.y - destPoint.y))
+    //if (isBehind(sourcePoint.x, sourcePoint.y, midPointX, midPointY, inputAngle))
+    //  Line.fromPointAndGradient(midPointX, midPointY, (sourcePoint.x - destPoint.x) / (sourcePoint.y - destPoint.y))
+    //else
+      Line.fromPointAndGradient(midPointX, midPointY, -(sourcePoint.x - destPoint.x) / (sourcePoint.y - destPoint.y))
     val l2 =
     if inputAngle == Pi || inputAngle == 0 then VLine(sourcePoint.x)
     else if inputAngle == Pi/2 || inputAngle == 3*Pi/2 then HLine(sourcePoint.y)
     else Line.fromPointAndGradient(sourcePoint.x, sourcePoint.y, 1 / tan(inputAngle))
-    
     l1.intersectionWith(l2).foreach { (ix, iy) =>
       if (useGuidelines) {
         addNodes += l1.plot("red")
         addNodes += l2.plot("yellow")
         addNodes += plotDot(midPointX, midPointY, "green")
         addNodes += plotDot(ix, iy, "blue")
+      } else {
+        pointsCache = generatePoints()
       }
       path = Some(plotArc(sourcePoint.x, sourcePoint.y, destPoint.x, destPoint.y, ix, iy, "grey", strokeWidth))
     }
   }
   
-  def draw(): Unit = draw(false)
+  def drawRoad(): Unit = draw(false)
 }

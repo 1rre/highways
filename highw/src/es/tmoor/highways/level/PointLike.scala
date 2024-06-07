@@ -1,7 +1,7 @@
 package es.tmoor.highways.level
 
 import org.scalajs.dom.{document, SVGCircleElement}
-import math.{sin, cos, atan2, hypot}
+import math.{sin, cos, atan2, hypot, Pi}
 import scala.collection.mutable.Buffer
 import org.scalajs.dom.SVGElement
 import org.scalajs.dom.SVGSVGElement
@@ -12,6 +12,8 @@ sealed trait PointLike extends Drawable {
   val y: Double
   protected val colour: String
   var node: Option[SVGCircleElement] = None
+  val inputs = Buffer[RoadLike]()
+  val outputs = Buffer[RoadLike]()
   def draw(): Unit = {
     node = Some(
       document
@@ -45,13 +47,15 @@ case class RoadPoint(x: Double, y: Double)(val page: SVGSVGElement) extends Remo
 case class RoadConnectionPoint(x: Double, y: Double, owner: DrawnRoad)(val page: SVGSVGElement) extends RemovablePoint with AngledPoint {
   val angle = {
     val pts = owner.points
-    val closestPoint = pts.minBy((x1, y1) => hypot(scaleX(x) - x1, scaleX(y) - y1))
+    val sx = scaleX(x)
+    val sy = scaleY(y)
+    val closestPoint = pts.minBy((x1, y1) => hypot(sx - x1, sy - y1))
     val idx = pts.indexOf(closestPoint)
     //val idx = pts.indexOf((x, y))
     val pPrev = pts((idx - 1) max 0)
     val pNext = pts((idx + 1) min (pts.length - 1))
-    val a = atan2(pNext._2 - pPrev._2, pNext._1 - pPrev._1)
-    println(s"Angle of $pPrev => $pNext: $a")
+    val angle = atan2(pNext._2 - pPrev._2, pPrev._1 - pNext._1)
+    val a = (angle + Pi / 2) % (2 * Pi)
     a
   }
   protected val colour = "grey"
@@ -127,9 +131,10 @@ case class SourcePoint(x1: Double, y1: Double, angle: Double, id: Int, demand: M
     demandArrows.clear()
   }
 
-  def drawDemandArrows(): Unit = {
+  def drawDemandArrows(satisfied: Seq[Int]): Unit = {
     demand.foreach { (point, demand) =>
       if (demand > 0) {
+        val opacity = if (satisfied.contains(point.id)) "30%" else "80%"
         val line = plotLine(
           x,
           y,
@@ -139,7 +144,7 @@ case class SourcePoint(x1: Double, y1: Double, angle: Double, id: Int, demand: M
         )
         line.setAttribute(
           "style",
-          s"fill: none; stroke: ${IdColours(point.id)}; stroke-width: ${demand * 3}px; z-index: 100; opacity: 30%;"
+          s"fill: none; stroke: ${IdColours(point.id)}; stroke-width: ${demand * 3}px; z-index: 100; opacity: $opacity;"
         )
         demandArrows += line
       }
@@ -147,7 +152,7 @@ case class SourcePoint(x1: Double, y1: Double, angle: Double, id: Int, demand: M
   }
 
   override def activate(): Unit = {
-    drawDemandArrows()
+    drawDemandArrows(satisfiedDemand)
     super.activate()
   }
 
@@ -155,9 +160,35 @@ case class SourcePoint(x1: Double, y1: Double, angle: Double, id: Int, demand: M
     clearDemandArrows()
     super.deactivate()
   }
+  
+  var satisfiedDemand: Seq[Int] = Nil
+
+  def setSatisfiedDemand(roads: Seq[RoadLike]): Unit = {
+    val reachable = Buffer[PointLike]()
+    def checkPoint(p: PointLike): Unit = {
+      p.outputs.foreach {
+        case r: DrawnRoad => checkRoad(r)
+        case _ =>
+      }
+    }
+    def checkRoad(road: DrawnRoad): Unit = {
+      if (!reachable.contains(road.destPoint)) {
+        reachable += road.destPoint
+        checkPoint(road.destPoint)
+      }
+    }
+    for (case (r: DrawnRoad) <- roads if r.sourcePoint == this) {
+      println(s"Checking $r")
+      checkRoad(r)
+    }
+    println(reachable)
+    satisfiedDemand = reachable.toArray.collect {
+      case p: SinkPoint => p.id
+    }
+  }
 
   override def draw(): Unit = {
-    if (active) drawDemandArrows()
+    if (active) drawDemandArrows(satisfiedDemand)
     else clearDemandArrows()
     super.draw()
   }
