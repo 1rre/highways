@@ -44,6 +44,7 @@ sealed trait RemovablePoint extends PointLike {
 case class RoadPoint(x: Double, y: Double)(val page: SVGSVGElement) extends RemovablePoint {
   protected val colour: String = "yellow"
 }
+
 case class RoadConnectionPoint(x: Double, y: Double, owner: DrawnRoad)(val page: SVGSVGElement) extends RemovablePoint with AngledPoint {
   val angle = {
     val pts = owner.points
@@ -51,7 +52,6 @@ case class RoadConnectionPoint(x: Double, y: Double, owner: DrawnRoad)(val page:
     val sy = scaleY(y)
     val closestPoint = pts.minBy((x1, y1) => hypot(sx - x1, sy - y1))
     val idx = pts.indexOf(closestPoint)
-    //val idx = pts.indexOf((x, y))
     val pPrev = pts((idx - 1) max 0)
     val pNext = pts((idx + 1) min (pts.length - 1))
     val angle = atan2(pNext._2 - pPrev._2, pPrev._1 - pNext._1)
@@ -70,8 +70,7 @@ case class RoadConnectionPoint(x: Double, y: Double, owner: DrawnRoad)(val page:
   }
 }
 
-sealed trait FixedPoint extends PointLike {
-  val angle: Double
+sealed trait FixedPoint extends AngledPoint {
   val id: Int
   val x1: Double
   val y1: Double

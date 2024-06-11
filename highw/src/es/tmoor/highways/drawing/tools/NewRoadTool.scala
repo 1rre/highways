@@ -11,7 +11,7 @@ class NewRoadTool(val level: Level) extends DrawingTool with MouseTracker {
 
   def activate(newSource: RoadConnectionPoint | SourcePoint, x: Double, y: Double): Unit = {
     source = Some(newSource)
-    tempRoad = Some(DrawnRoad(newSource, RoadPoint(x, y), newSource.angle))
+    tempRoad = Some(FreeFormRoad(newSource, RoadPoint(x, y)))
   }
 
   def deactivate(): Unit = {
@@ -22,7 +22,7 @@ class NewRoadTool(val level: Level) extends DrawingTool with MouseTracker {
   
   def processScroll(e: WheelEvent): Unit = {
     tempRoad.foreach { tempRoad =>
-      tempRoad.angleSkew += unScaleY(e.deltaY)
+      tempRoad.incrAngleSkew(unScaleY(e.deltaY))
       tempRoad.clear()
       tempRoad.draw()
     }
@@ -53,17 +53,27 @@ class NewRoadTool(val level: Level) extends DrawingTool with MouseTracker {
   def processMouseMove(e: MouseEvent): Unit = {
     tempRoad.foreach(_.clear())
     val tempRoadAngleSkew = tempRoad.map(_.angleSkew)
+    println(s"AS: $tempRoadAngleSkew")
     val cr = getNearestSink(e.clientX, e.clientY)
-    if (cr._2 < reqDist && !e.shiftKey && shouldSnap(tempRoad.map(_.sourcePoint).get, cr._1)) {
-      source.map { point =>
-        tempRoad = Some(DrawnRoad(point, cr._1, point.angle, tempRoadAngleSkew.getOrElse(0d)))
-        tempRoad.foreach(_.draw(true))
+    println(s"Nearest sink: $cr w/ angle ${cr._1.angle}")
+    if (cr._2 < reqDist && shouldSnap(tempRoad.map(_.sourcePoint).get, cr._1)) {
+      if (e.shiftKey) { // Shift => don't line up
+        source.map { point =>
+          tempRoad = Some(FreeFormRoad(point, cr._1, tempRoadAngleSkew.getOrElse(0d)))
+          tempRoad.foreach(_.draw(true))
+        }
+      } else {
+
+        source.map { point =>
+          tempRoad = Some(CubicRoad(point, cr._1))
+          tempRoad.foreach(_.draw(true))
+        }
       }
     } else {
       val newPoint = RoadPoint(unScaleX(e.clientX), unScaleY(e.clientY))
       
       source.map { point =>
-        tempRoad = Some(DrawnRoad(point, newPoint, point.angle, tempRoadAngleSkew.getOrElse(0d)))
+        tempRoad = Some(FreeFormRoad(point, newPoint, tempRoadAngleSkew.getOrElse(0d)))
         tempRoad.foreach(_.draw(true))
       }
     }

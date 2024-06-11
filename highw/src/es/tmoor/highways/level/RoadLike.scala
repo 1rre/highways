@@ -10,8 +10,17 @@ sealed trait RoadLike extends Drawable {
   var path: Option[SVGPathElement] = None
   
   object Line {
-    def fromPointAndGradient(x: Double, y: Double, m: Double): Line = Line(m, y - m*x)
-    def fromTwoPoints(x1: Double, y1: Double, x2: Double, y2: Double): Line = {
+    def fromPointAndAngle(x: Double, y: Double, t: Double): LineLike = {
+      if t == Pi || t == 0 then VLine(x)
+      else if t == Pi/2 || t == 3*Pi/2 then HLine(y)
+      else Line.fromPointAndGradient(x, y, 1 / tan(t))
+    }
+    def fromPointAndGradient(x: Double, y: Double, m: Double): LineLike = {
+      if (m == 0) HLine(y)
+      else if (m == Double.PositiveInfinity || m == Double.NegativeInfinity) VLine(x)
+      else Line(m, y - m*x)
+    }
+    def fromTwoPoints(x1: Double, y1: Double, x2: Double, y2: Double): LineLike = {
       fromPointAndGradient(x1, x2, (y2 - x1) / (x2 - x1))
     }
   }
@@ -20,6 +29,8 @@ sealed trait RoadLike extends Drawable {
     def plot(colour: String): SVGPathElement
     def intersectionWith(that: LineLike): Option[(Double, Double)]
   }
+
+  // TODO: Add directionality for "isBehind"
   case class HLine(y: Double) extends LineLike {
     def gradient: Double = 0
     def plot(colour: String): SVGPathElement = plotLine(0, y, 1, y, colour)
@@ -32,6 +43,7 @@ sealed trait RoadLike extends Drawable {
     }
   }
   
+  // TODO: Add directionality for "isBehind"
   case class VLine(x: Double) extends LineLike {
     def gradient: Double = Double.PositiveInfinity
     def plot(colour: String): SVGPathElement = plotLine(x, 0, x, 1, colour)
@@ -44,6 +56,7 @@ sealed trait RoadLike extends Drawable {
     }
   }
   
+  // TODO: Add directionality for "isBehind"
   case class Line(m: Double, c: Double) extends LineLike {
     def gradient: Double = m
     def fx(x: Double): Double = m * x + c
@@ -102,7 +115,10 @@ case class FixedRoad(val point: FixedPoint)(val page: SVGSVGElement) extends Roa
   }
 }
 
-case class DrawnRoad(val sourcePoint: PointLike, val destPoint: PointLike, val inputAngle: Double, var angleSkew: Double = 0d)(val page: SVGSVGElement) extends RoadLike {
+sealed abstract class DrawnRoad extends RoadLike {
+  val sourcePoint: AngledPoint
+  val destPoint: PointLike
+
   sourcePoint.outputs += this
   destPoint.inputs += this
   val addNodes = Buffer[SVGElement]()
@@ -134,29 +150,34 @@ case class DrawnRoad(val sourcePoint: PointLike, val destPoint: PointLike, val i
     destPoint.inputs -= this
   }
   
+
+  // TODO: Broken... Fix to maybe work on line and check f(x)?
   def isBehind(x1: Double, y1: Double, x2: Double, y2: Double, angle: Double): Boolean = {
     val a1 = atan2(y2 - y1, x2 - x1)
-    print(s"ADIFF: ${(atan2(y2 - y1, x2 - x1) - angle).abs % (2*Pi)}")
-    (atan2(y2 - y1, x2 - x1) - angle).abs % (2*Pi) > Pi
+    //println(s"ADIFF: ${normaliseAngle((atan2(y2 - y1, x2 - x1) - angle).abs)} (> pi? ${normaliseAngle((atan2(y2 - y1, x2 - x1) - angle).abs) > Pi})")
+    normaliseAngle((atan2(y2 - y1, x2 - x1) - angle).abs) > Pi
   }
   
+  def draw(useGuidelines: Boolean): Unit
+  
+  def drawRoad(): Unit = draw(false)
+  def angleSkew: Double
+  def incrAngleSkew(x: Double): Unit = {}
+}
+
+sealed trait QuadraticRoad extends DrawnRoad {
+  protected def diffX = destPoint.x - sourcePoint.x
+  protected def diffY = destPoint.y - sourcePoint.y
+  protected def lengthOnLine = (tanh(angleSkew) + 1) / 2
+  protected def midPointX = sourcePoint.x + lengthOnLine * diffX
+  protected def midPointY = sourcePoint.y + lengthOnLine * diffY
+  protected def l1 = Line.fromPointAndGradient(midPointX, midPointY, -(sourcePoint.x - destPoint.x) / (sourcePoint.y - destPoint.y))
+  protected def l2 = Line.fromPointAndAngle(sourcePoint.x, sourcePoint.y, sourcePoint.angle)
+  protected def intersection = l1.intersectionWith(l2)
   def draw(useGuidelines: Boolean): Unit = {
+    println(s"Drawing with Angle Skew: $angleSkew")
     clear()
-    val diffX = destPoint.x - sourcePoint.x
-    val diffY = destPoint.y - sourcePoint.y
-    val lengthOnLine = (tanh(angleSkew) + 1) / 2
-    val midPointX = sourcePoint.x + lengthOnLine * diffX
-    val midPointY = sourcePoint.y + lengthOnLine * diffY
-    val l1 =
-    //if (isBehind(sourcePoint.x, sourcePoint.y, midPointX, midPointY, inputAngle))
-    //  Line.fromPointAndGradient(midPointX, midPointY, (sourcePoint.x - destPoint.x) / (sourcePoint.y - destPoint.y))
-    //else
-      Line.fromPointAndGradient(midPointX, midPointY, -(sourcePoint.x - destPoint.x) / (sourcePoint.y - destPoint.y))
-    val l2 =
-    if inputAngle == Pi || inputAngle == 0 then VLine(sourcePoint.x)
-    else if inputAngle == Pi/2 || inputAngle == 3*Pi/2 then HLine(sourcePoint.y)
-    else Line.fromPointAndGradient(sourcePoint.x, sourcePoint.y, 1 / tan(inputAngle))
-    l1.intersectionWith(l2).foreach { (ix, iy) =>
+    intersection.foreach { (ix, iy) =>
       if (useGuidelines) {
         addNodes += l1.plot("red")
         addNodes += l2.plot("yellow")
@@ -168,6 +189,74 @@ case class DrawnRoad(val sourcePoint: PointLike, val destPoint: PointLike, val i
       path = Some(plotArc(sourcePoint.x, sourcePoint.y, destPoint.x, destPoint.y, ix, iy, "grey", strokeWidth))
     }
   }
-  
-  def drawRoad(): Unit = draw(false)
+}
+
+sealed trait SnappedRoad extends DrawnRoad {
+  def angleSkew: Double = 0
+}
+
+case class FreeFormRoad(sourcePoint: AngledPoint, destPoint: PointLike, var angleSkew: Double = 0d)(val page: SVGSVGElement) extends QuadraticRoad {
+  override def incrAngleSkew(dx: Double): Unit = {
+    angleSkew += dx
+  }
+}
+
+case class SnappedQuadraticRoad(sourcePoint: AngledPoint, destPoint: PointLike)(val page: SVGSVGElement) extends QuadraticRoad with SnappedRoad {
+  override protected val diffX = super.diffX
+  override protected val diffY = super.diffY
+  override protected val lengthOnLine = super.lengthOnLine
+  override protected val midPointX = super.midPointX
+  override protected val midPointY = super.midPointY
+  override protected val l1 = super.l1
+  override protected val l2 = super.l2
+  override protected val intersection = super.intersection
+}
+
+
+case class CubicRoad(val sourcePoint: AngledPoint, val destPoint: AngledPoint)(val page: SVGSVGElement) extends SnappedRoad {
+  def draw(useGuidelines: Boolean): Unit = {
+    clear()
+    val startingAngle = sourcePoint.angle
+    val destAngle = normaliseAngle(destPoint.angle)
+    val diffX = destPoint.x - sourcePoint.x
+    val diffY = destPoint.y - sourcePoint.y
+    val midPointX = sourcePoint.x + diffX / 2
+    val midPointY = sourcePoint.y + diffY / 2
+
+    val l1 = Line.fromPointAndAngle(sourcePoint.x, sourcePoint.y, startingAngle)
+    val l2 = Line.fromPointAndAngle(destPoint.x, destPoint.y, destAngle)
+
+    val intersectionWith = l1.intersectionWith(l2)
+    println(s"Intersect at: $intersectionWith")
+    val intersectionWithB = l2.intersectionWith(l1)
+    println(s"Intersect at: $intersectionWithB")
+    val useCubic = intersectionWith.map{(x, y) => 
+      val behindA = isBehind(startingAngle, x, y, sourcePoint.x, sourcePoint.y)
+      val behindB = isBehind(destAngle, destPoint.x, destPoint.y, x, y)
+      println(s"Behind? ${(behindA, behindB)}")
+      behindA || behindB
+    }.getOrElse(true)
+    println(s"Use Cubic: $useCubic")
+    if (useCubic) {
+      if (useGuidelines) {
+        addNodes += l1.plot("red")
+        addNodes += l2.plot("yellow")
+        addNodes += plotDot(midPointX, midPointY, "green")
+      }
+    }
+    else {
+      println("Using Quadratic")
+      intersectionWith.foreach { (ix, iy) =>
+        if (useGuidelines) {
+          addNodes += l1.plot("red")
+          addNodes += l2.plot("yellow")
+          addNodes += plotDot(midPointX, midPointY, "green")
+          addNodes += plotDot(ix, iy, "blue")
+        } else {
+          pointsCache = generatePoints()
+        }
+        path = Some(plotArc(sourcePoint.x, sourcePoint.y, destPoint.x, destPoint.y, ix, iy, "grey", strokeWidth))
+      }
+    }
+  }
 }
