@@ -3,4 +3,4 @@
 .vscode/*
 out/mill*
 out/highw/*
-!out/highw/fastOpt.dest
+!out/highw/fullOpt.dest
