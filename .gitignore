@@ -1,4 +1,6 @@
-.bloop/
-.metals/
-.vscode/
-out/
+.bloop/*
+.metals/*
+.vscode/*
+out/mill*
+out/highw/*
+!out/highw/fastOpt.dest
