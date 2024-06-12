@@ -55,7 +55,7 @@ case class RoadConnectionPoint(x: Double, y: Double, owner: DrawnRoad)(val page:
     val pPrev = pts((idx - 1) max 0)
     val pNext = pts((idx + 1) min (pts.length - 1))
     val angle = atan2(pNext._2 - pPrev._2, pPrev._1 - pNext._1)
-    val a = (angle + Pi / 2) % (2 * Pi)
+    val a = (angle + 2 * Pi + Pi / 2) % (2 * Pi)
     a
   }
   protected val colour = "grey"
@@ -177,10 +177,8 @@ case class SourcePoint(x1: Double, y1: Double, angle: Double, id: Int, demand: M
       }
     }
     for (case (r: DrawnRoad) <- roads if r.sourcePoint == this) {
-      println(s"Checking $r")
       checkRoad(r)
     }
-    println(reachable)
     satisfiedDemand = reachable.toArray.collect {
       case p: SinkPoint => p.id
     }

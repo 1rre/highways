@@ -6,100 +6,7 @@ import math.{atan2, tanh, tan, Pi}
 import org.scalajs.dom.SVGSVGElement
 import es.tmoor.highways.Drawable
 
-sealed trait RoadLike extends Drawable {
-  var path: Option[SVGPathElement] = None
-  
-  object Line {
-    def fromPointAndAngle(x: Double, y: Double, t: Double): LineLike = {
-      if t == Pi || t == 0 then VLine(x)
-      else if t == Pi/2 || t == 3*Pi/2 then HLine(y)
-      else Line.fromPointAndGradient(x, y, 1 / tan(t))
-    }
-    def fromPointAndGradient(x: Double, y: Double, m: Double): LineLike = {
-      if (m == 0) HLine(y)
-      else if (m == Double.PositiveInfinity || m == Double.NegativeInfinity) VLine(x)
-      else Line(m, y - m*x)
-    }
-    def fromTwoPoints(x1: Double, y1: Double, x2: Double, y2: Double): LineLike = {
-      fromPointAndGradient(x1, x2, (y2 - x1) / (x2 - x1))
-    }
-  }
-  sealed trait LineLike {
-    def gradient: Double
-    def plot(colour: String): SVGPathElement
-    def intersectionWith(that: LineLike): Option[(Double, Double)]
-  }
-
-  // TODO: Add directionality for "isBehind"
-  case class HLine(y: Double) extends LineLike {
-    def gradient: Double = 0
-    def plot(colour: String): SVGPathElement = plotLine(0, y, 1, y, colour)
-    def intersectionWith(that: LineLike): Option[(Double, Double)] = {
-      that match {
-        case HLine(y) => None
-        case VLine(x) => Some((x, y))
-        case Line(m, c) => Some(((y - c) / m, y))
-      }
-    }
-  }
-  
-  // TODO: Add directionality for "isBehind"
-  case class VLine(x: Double) extends LineLike {
-    def gradient: Double = Double.PositiveInfinity
-    def plot(colour: String): SVGPathElement = plotLine(x, 0, x, 1, colour)
-    def intersectionWith(that: LineLike): Option[(Double, Double)] = {
-      that match {
-        case VLine(x) => None
-        case HLine(y) => Some((x, y))
-        case Line(m, c) => Some((x, m*x+c))
-      }
-    }
-  }
-  
-  // TODO: Add directionality for "isBehind"
-  case class Line(m: Double, c: Double) extends LineLike {
-    def gradient: Double = m
-    def fx(x: Double): Double = m * x + c
-    def fy(y: Double): Double = (y - c) / m
-    override def toString = s"y = $m*x + $c"
-    def plot(colour: String): SVGPathElement = {
-      val x1 = 0
-      val y1 = fx(0)
-      val x2 = page.clientWidth
-      val y2 = fx(x2)
-      plotLine(x1, y1, x2, y2, colour)
-    }
-    def intersectionWith(that: LineLike): Option[(Double, Double)] = {
-      that match {
-        case VLine(x) => Some((x, fx(x)))
-        case HLine(y) => Some((fy(y), y))
-        case that: Line if this.m == that.m => None
-        case that: Line =>
-        val x = (that.c - this.c) / (this.m - that.m)
-        val p1 = Some((x, fx(x)))
-        val p2 = Some((x, that.fx(x)))
-        p1
-      }
-    }
-  }
-  def generatePoints() = {
-    path.map { path =>
-      val step = path.getTotalLength() / 100
-      (0 to 100).map { i =>
-        val pos = step * i
-        val point = path.getPointAtLength(pos)
-        (point.x, point.y)
-      }
-    }.getOrElse(Nil)
-  }
-  var pointsCache = generatePoints()
-  def points: Seq[(Double, Double)] = pointsCache
-  def drawRoad(): Unit
-  final def draw(): Unit = {
-    drawRoad()
-    pointsCache = generatePoints()
-  }
-}
+sealed trait RoadLike extends Drawable with LineDrawingTools
 
 case class FixedRoad(val point: FixedPoint)(val page: SVGSVGElement) extends RoadLike {
   def drawRoad(): Unit = {
@@ -152,10 +59,12 @@ sealed abstract class DrawnRoad extends RoadLike {
   
 
   // TODO: Broken... Fix to maybe work on line and check f(x)?
-  def isBehind(x1: Double, y1: Double, x2: Double, y2: Double, angle: Double): Boolean = {
-    val a1 = atan2(y2 - y1, x2 - x1)
-    //println(s"ADIFF: ${normaliseAngle((atan2(y2 - y1, x2 - x1) - angle).abs)} (> pi? ${normaliseAngle((atan2(y2 - y1, x2 - x1) - angle).abs) > Pi})")
-    normaliseAngle((atan2(y2 - y1, x2 - x1) - angle).abs) > Pi
+  def isBehind(x1: Double, y1: Double, x2: Double, y2: Double, l: LineLike): Boolean = {
+    l.distBetween(x1, y1, x2, y2) < 0
+  }
+  def isBehind(x1: Double, y1: Double, x2: Double, y2: Double, a: Double): Boolean = {
+    val l = Line.fromPointAndAngle(x1, y1, a)
+    isBehind(x1, y1, x2, y2, l)
   }
   
   def draw(useGuidelines: Boolean): Unit
@@ -171,11 +80,12 @@ sealed trait QuadraticRoad extends DrawnRoad {
   protected def lengthOnLine = (tanh(angleSkew) + 1) / 2
   protected def midPointX = sourcePoint.x + lengthOnLine * diffX
   protected def midPointY = sourcePoint.y + lengthOnLine * diffY
-  protected def l1 = Line.fromPointAndGradient(midPointX, midPointY, -(sourcePoint.x - destPoint.x) / (sourcePoint.y - destPoint.y))
+  // TODO: Find angle for l1
+  protected def l1Direction = if diffX > 0 then PlusX else MinusX
+  protected def l1 = Line.fromPointAndGradient(midPointX, midPointY, -(sourcePoint.x - destPoint.x) / (sourcePoint.y - destPoint.y), l1Direction)
   protected def l2 = Line.fromPointAndAngle(sourcePoint.x, sourcePoint.y, sourcePoint.angle)
   protected def intersection = l1.intersectionWith(l2)
   def draw(useGuidelines: Boolean): Unit = {
-    println(s"Drawing with Angle Skew: $angleSkew")
     clear()
     intersection.foreach { (ix, iy) =>
       if (useGuidelines) {
@@ -227,16 +137,12 @@ case class CubicRoad(val sourcePoint: AngledPoint, val destPoint: AngledPoint)(v
     val l2 = Line.fromPointAndAngle(destPoint.x, destPoint.y, destAngle)
 
     val intersectionWith = l1.intersectionWith(l2)
-    println(s"Intersect at: $intersectionWith")
     val intersectionWithB = l2.intersectionWith(l1)
-    println(s"Intersect at: $intersectionWithB")
     val useCubic = intersectionWith.map{(x, y) => 
-      val behindA = isBehind(startingAngle, x, y, sourcePoint.x, sourcePoint.y)
-      val behindB = isBehind(destAngle, destPoint.x, destPoint.y, x, y)
-      println(s"Behind? ${(behindA, behindB)}")
+      val behindA = isBehind(sourcePoint.x, sourcePoint.y, x, y, l1)
+      val behindB = isBehind(destPoint.x, destPoint.y, x, y, l2)
       behindA || behindB
     }.getOrElse(true)
-    println(s"Use Cubic: $useCubic")
     if (useCubic) {
       if (useGuidelines) {
         addNodes += l1.plot("red")
@@ -245,7 +151,6 @@ case class CubicRoad(val sourcePoint: AngledPoint, val destPoint: AngledPoint)(v
       }
     }
     else {
-      println("Using Quadratic")
       intersectionWith.foreach { (ix, iy) =>
         if (useGuidelines) {
           addNodes += l1.plot("red")
