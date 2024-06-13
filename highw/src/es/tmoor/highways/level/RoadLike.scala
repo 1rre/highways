@@ -91,6 +91,7 @@ sealed trait QuadraticRoad extends DrawnRoad {
 }
 
 sealed trait SnappedRoad extends DrawnRoad {
+  val destPoint: AngledPoint
   def angleSkew: Double = 0
 }
 
@@ -103,7 +104,8 @@ case class FreeFormRoad(sourcePoint: AngledPoint, destPoint: PointLike, var angl
 object SnappedRoad {
   def fromPoints(source: AngledPoint, dest: AngledPoint): SVGSVGElement => SnappedRoad = {
     val startingAngle = source.angle
-    val destAngle = normaliseAngle(dest.angle)
+    val destAngle = normaliseAngle(dest.angle - Pi)
+    println(s"a $startingAngle => $destAngle")
     val diffX = dest.x - source.x
     val diffY = dest.y - source.y
     val midPointX = source.x + diffX / 2
@@ -114,6 +116,7 @@ object SnappedRoad {
     val useCubic = l1.intersectionWith(l2).map{(x, y) => 
       val behindA = isBehind(source.x, source.y, x, y, l1)
       val behindB = isBehind(dest.x, dest.y, x, y, l2)
+      println(s"Behind A: $behindA, Behind B: $behindB")
       behindA || behindB
     }.getOrElse(true)
 
@@ -125,15 +128,17 @@ object SnappedRoad {
   }
 }
 
-case class SnappedQuadraticRoad(sourcePoint: AngledPoint, destPoint: PointLike)(val page: SVGSVGElement) extends QuadraticRoad with SnappedRoad {
-  override protected val diffX = super.diffX
-  override protected val diffY = super.diffY
-  override protected val lengthOnLine = super.lengthOnLine
-  override protected val midPointX = super.midPointX
-  override protected val midPointY = super.midPointY
-  override protected val l1 = super.l1
-  override protected val l2 = super.l2
-  override protected val intersection = super.intersection
+case class SnappedQuadraticRoad(sourcePoint: AngledPoint, destPoint: AngledPoint)(val page: SVGSVGElement) extends SnappedRoad with QuadraticRoad {
+  protected val startingAngle = sourcePoint.angle
+  protected val destAngle = normaliseAngle(destPoint.angle)
+  override protected val diffX = destPoint.x - sourcePoint.x
+  override protected val diffY = destPoint.y - sourcePoint.y
+  override protected val midPointX = sourcePoint.x + diffX / 2
+  override protected val midPointY = sourcePoint.y + diffY / 2
+
+  override protected val l1 = DrawableLine.fromPointAndAngle(sourcePoint.x, sourcePoint.y, startingAngle)
+  override protected val l2 = DrawableLine.fromPointAndAngle(destPoint.x, destPoint.y, destAngle)
+  override protected val intersection = l1.intersectionWith(l2)
 }
 
 

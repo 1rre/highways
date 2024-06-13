@@ -6,6 +6,8 @@ import scala.collection.mutable.Buffer
 import org.scalajs.dom.SVGElement
 import org.scalajs.dom.SVGSVGElement
 import es.tmoor.highways.Drawable
+import es.tmoor.highways.util.normaliseAngle
+import es.tmoor.highways.util.MinusX
 
 sealed trait PointLike extends Drawable {
   val x: Double
@@ -46,11 +48,18 @@ case class RoadPoint(x: Double, y: Double)(val page: SVGSVGElement) extends Remo
 }
 
 case class RoadConnectionPoint(x: Double, y: Double, owner: DrawnRoad)(val page: SVGSVGElement) extends RemovablePoint with AngledPoint {
+  
+  val dir = {
+  }
+  // TODO: get directionality properly!! instead of just angle
   val angle = {
     owner.bezier.map { bz =>
-      atan(bz.gradientAt(x, y))
-    }.get // ?? if not
+      val t = bz.closestParametric(x, y)
+      val mod = if (bz.dydt(t) > 0) Pi else 0
+      normaliseAngle(atan(bz.gradientAt(x, y)) + mod)
+    }.get
   }
+
   protected val colour = "grey"
   def activate(): Unit = {
     owner.activate()
@@ -67,9 +76,6 @@ sealed trait FixedPoint extends AngledPoint {
   val id: Int
   val x1: Double
   val y1: Double
-  val x = x1 + sin(angle) * 0.075 * 2 / 3d
-  val y = y1 - cos(angle) * 0.075
-
   protected var active = false
 
   def activate(): Unit = {
@@ -114,6 +120,9 @@ case class SourcePoint(x1: Double, y1: Double, angle: Double, id: Int, demand: M
     "pink",
     "orange"
   )
+
+  val x = x1 + sin(angle) * 0.075 * 2 / 3d
+  val y = y1 - cos(angle) * 0.075
 
   protected val colour = "blue"
   val demandArrows = Buffer[SVGElement]()
@@ -186,4 +195,7 @@ case class SourcePoint(x1: Double, y1: Double, angle: Double, id: Int, demand: M
 
 case class SinkPoint(x1: Double, y1: Double, angle: Double, id: Int)(val page: SVGSVGElement) extends FixedPoint {
   protected val colour = "red"
+  
+  val x = x1 - sin(angle) * 0.075 * 2 / 3d
+  val y = y1 + cos(angle) * 0.075
 }

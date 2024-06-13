@@ -5,6 +5,8 @@ import es.tmoor.highways.data.LevelData
 import es.tmoor.highways.level._
 import scala.collection.mutable.Buffer
 import es.tmoor.highways.drawing.DrawingHandler
+import es.tmoor.highways.util.normaliseAngle
+import math.Pi
 
 class Level(val page: SVGSVGElement, data: LevelData) extends SvgUser {
   val drawText = page.innerHTML
@@ -12,7 +14,7 @@ class Level(val page: SVGSVGElement, data: LevelData) extends SvgUser {
     data.blocks.map(block => Block(block.x, block.y, block.w, block.h))
   
   val sinks: Seq[SinkPoint] =
-    data.sinks.map(sink => SinkPoint(sink.x1, sink.y1, sink.angle, sink.id))
+    data.sinks.map(sink => SinkPoint(sink.x1, sink.y1, normaliseAngle(sink.angle + Pi), sink.id))
   
   val sources: Seq[SourcePoint] =
     data.sources.map(source => SourcePoint(source.x1, source.y1, source.angle, source.id, source.demand.zipWithIndex.map((d, i) => sinks(i)->d).toMap))

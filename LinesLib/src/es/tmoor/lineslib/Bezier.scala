@@ -39,4 +39,29 @@ case class Bezier(x1: Double, y1: Double, xc: Double, yc: Double, x2: Double, y2
     val t = closestParametric(x, y)
     dydx(t)
   }
+
+  def intersectionsWith(that: Bezier): Seq[(Double, Double)] = {
+    println(s"Look for intersections between $this and $that")
+    val a = this.x1 - that.x1
+    val b1 = 2*(-this.x1 - this.xc + that.x1 + that.xc)
+    val b = b1 / a
+    val c1 = this.x1 + this.xc + this.x2 - that.x1 - that.xc - that.x2
+    val c = c1 / a
+    val sf = c / 2
+    val sider = -sf*sf - c
+    def yAreSame(p: Double): Option[(Double, Double)] = {
+      val yp1 = this.yt(p)
+      val yp2 = that.yt(p)
+      if (yp1 - yp2 < 1e-5) Some((xt(p), yp1)) else None
+    }
+    if (sider > 0) {
+      // t = ± sqrt(sider)
+      val p1 = math.sqrt(sider)
+      val p2 = -p1
+      (yAreSame(p1) ++ yAreSame(p2)).toSeq
+    } else Nil
+    // t² + bt + c = 0
+    // 
+    //(t + x)(t + x) 
+  }
 }

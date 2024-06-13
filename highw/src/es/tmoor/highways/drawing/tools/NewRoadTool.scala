@@ -61,9 +61,8 @@ class NewRoadTool(val level: Level) extends DrawingTool with MouseTracker {
           tempRoad.foreach(_.draw(true))
         }
       } else {
-
         source.map { point =>
-          tempRoad = Some(CubicRoad(point, cr._1))
+          tempRoad = Some(SnappedRoad.fromPoints(point, cr._1))
           tempRoad.foreach(_.draw(true))
         }
       }
@@ -80,5 +79,16 @@ class NewRoadTool(val level: Level) extends DrawingTool with MouseTracker {
   def draw(): Unit = {
     source.foreach(_.draw())
     tempRoad.foreach(_.draw())
+    level.roads.foreach { road =>
+      road.bezier.map { rbz =>
+        tempRoad.foreach { tr =>
+          tr.bezier.map { bz =>
+            bz.intersectionsWith(rbz).foreach { (x,y) =>
+              tr.plotDot(x, y, "black")
+            }
+          }
+        }  
+      }
+    }
   }
 }
