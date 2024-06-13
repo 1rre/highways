@@ -10,6 +10,8 @@ trait SvgUser {
 
   def scaleX(xc: Double): Int = (page.clientWidth * xc).round.toInt
   def scaleY(yc: Double): Int = (page.clientHeight * yc).round.toInt
+  def scaleXd(xc: Double): Double = (page.clientWidth * xc)
+  def scaleYd(yc: Double): Double = (page.clientHeight * yc)
   def unScaleX(xc: Double): Double = xc / page.clientWidth
   def unScaleY(yc: Double): Double = yc / page.clientHeight
 }

@@ -6,13 +6,12 @@ import math.{hypot}
 trait MouseTracker extends DrawingTool {
     def reqDist = scaleX(0.025) min scaleY(0.025)
     def getNearestRoadPoint(x: Double, y: Double): Option[(DrawnRoad, Double, Double, Double)] = {
-        level.roads.map { road =>
-            val (x1, y1, dist) = road.points
-            .map((px, py) => (px, py, hypot(x - px, y - py)))
-            .minByOption(_._3)
-            .getOrElse((0d, 0d, Double.PositiveInfinity))
-            (road, x1, y1, dist)
-        }.minByOption(_._4)
+        level.roads.map(road => road.bezier.map { bz =>
+            val (xs, ys) = bz.closestPoint(unScaleX(x), unScaleY(y))
+            val (xt, yt) = (scaleXd(xs), scaleYd(ys))
+            val d = hypot(x - xt, y - yt)
+            (road, xt, yt, d)
+        }).flatten.minByOption(_._4)
     }
 
     def getNearestFixedSource(x: Double, y: Double): (SourcePoint, Double) = {

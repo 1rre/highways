@@ -3,4 +3,5 @@
 .vscode/*
 out/mill*
 out/highw/*
+out/lineslib/*
 !out/highw/fullOpt.dest

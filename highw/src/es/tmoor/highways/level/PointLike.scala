@@ -1,7 +1,7 @@
 package es.tmoor.highways.level
 
 import org.scalajs.dom.{document, SVGCircleElement}
-import math.{sin, cos, atan2, hypot, Pi}
+import math.{sin, cos, atan2, hypot, Pi, atan}
 import scala.collection.mutable.Buffer
 import org.scalajs.dom.SVGElement
 import org.scalajs.dom.SVGSVGElement
@@ -47,16 +47,9 @@ case class RoadPoint(x: Double, y: Double)(val page: SVGSVGElement) extends Remo
 
 case class RoadConnectionPoint(x: Double, y: Double, owner: DrawnRoad)(val page: SVGSVGElement) extends RemovablePoint with AngledPoint {
   val angle = {
-    val pts = owner.points
-    val sx = scaleX(x)
-    val sy = scaleY(y)
-    val closestPoint = pts.minBy((x1, y1) => hypot(sx - x1, sy - y1))
-    val idx = pts.indexOf(closestPoint)
-    val pPrev = pts((idx - 1) max 0)
-    val pNext = pts((idx + 1) min (pts.length - 1))
-    val angle = atan2(pNext._2 - pPrev._2, pPrev._1 - pNext._1)
-    val a = (angle + 2 * Pi + Pi / 2) % (2 * Pi)
-    a
+    owner.bezier.map { bz =>
+      atan(bz.gradientAt(x, y))
+    }.get // ?? if not
   }
   protected val colour = "grey"
   def activate(): Unit = {

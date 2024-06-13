@@ -1,10 +1,8 @@
 package es.tmoor.highways
 
 import org.scalajs.dom.{SVGSVGElement, SVGPathElement, SVGCircleElement, document}
-import math.Pi
 
 trait Drawable extends SvgUser {
-  def normaliseAngle(x: Double): Double = (x + 2 * Pi) % (2 * Pi)
   def draw(): Unit
   
   def plotArc(x1s: Double, y1s: Double, x2s: Double, y2s: Double, xcs: Double, ycs: Double, colour: String, width: Int): SVGPathElement = {

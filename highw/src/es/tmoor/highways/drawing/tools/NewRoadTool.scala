@@ -53,9 +53,7 @@ class NewRoadTool(val level: Level) extends DrawingTool with MouseTracker {
   def processMouseMove(e: MouseEvent): Unit = {
     tempRoad.foreach(_.clear())
     val tempRoadAngleSkew = tempRoad.map(_.angleSkew)
-    println(s"AS: $tempRoadAngleSkew")
     val cr = getNearestSink(e.clientX, e.clientY)
-    println(s"Nearest sink: $cr w/ angle ${cr._1.angle}")
     if (cr._2 < reqDist && shouldSnap(tempRoad.map(_.sourcePoint).get, cr._1)) {
       if (e.shiftKey) { // Shift => don't line up
         source.map { point =>
