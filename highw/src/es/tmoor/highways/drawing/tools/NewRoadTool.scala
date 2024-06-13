@@ -2,7 +2,8 @@ package es.tmoor.highways.drawing.tools
 
 import es.tmoor.highways.Level
 import es.tmoor.highways.level._
-import org.scalajs.dom.{WheelEvent, MouseEvent}
+import org.scalajs.dom.{WheelEvent, MouseEvent, SVGCircleElement}
+import scala.collection.mutable.Buffer
 
 class NewRoadTool(val level: Level) extends DrawingTool with MouseTracker {
   var source: Option[RoadConnectionPoint | SourcePoint] = None
@@ -50,6 +51,29 @@ class NewRoadTool(val level: Level) extends DrawingTool with MouseTracker {
     }
   }
 
+  val intersectionDots = Buffer[SVGCircleElement]()
+
+  def drawTempRoad(): Unit = {
+    intersectionDots.foreach(_.remove())
+    intersectionDots.clear()
+    tempRoad.foreach(_.draw(true))
+    level.roads.foreach { road =>
+      println(s"Check road $road for intersections with TR")
+      road.bezier.map { rbz =>
+        println(s"Has BZ $rbz")
+        tempRoad.foreach { tr =>
+          println(s"Check TR $road for intersections with TR")
+          tr.bezier.map { bz =>
+            println(s"Temp has BZ $rbz")
+            bz.intersectionsWith(rbz).foreach { (x,y) =>
+              intersectionDots += tr.plotDot(x, y, "black")
+            }
+          }
+        }  
+      }
+    }
+  }
+
   def processMouseMove(e: MouseEvent): Unit = {
     tempRoad.foreach(_.clear())
     val tempRoadAngleSkew = tempRoad.map(_.angleSkew)
@@ -58,12 +82,12 @@ class NewRoadTool(val level: Level) extends DrawingTool with MouseTracker {
       if (e.shiftKey) { // Shift => don't line up
         source.map { point =>
           tempRoad = Some(FreeFormRoad(point, cr._1, tempRoadAngleSkew.getOrElse(0d)))
-          tempRoad.foreach(_.draw(true))
+          drawTempRoad()
         }
       } else {
         source.map { point =>
           tempRoad = Some(SnappedRoad.fromPoints(point, cr._1))
-          tempRoad.foreach(_.draw(true))
+          drawTempRoad()
         }
       }
     } else {
@@ -71,24 +95,13 @@ class NewRoadTool(val level: Level) extends DrawingTool with MouseTracker {
       
       source.map { point =>
         tempRoad = Some(FreeFormRoad(point, newPoint, tempRoadAngleSkew.getOrElse(0d)))
-        tempRoad.foreach(_.draw(true))
+        drawTempRoad()
       }
     }
   }
 
   def draw(): Unit = {
     source.foreach(_.draw())
-    tempRoad.foreach(_.draw())
-    level.roads.foreach { road =>
-      road.bezier.map { rbz =>
-        tempRoad.foreach { tr =>
-          tr.bezier.map { bz =>
-            bz.intersectionsWith(rbz).foreach { (x,y) =>
-              tr.plotDot(x, y, "black")
-            }
-          }
-        }  
-      }
-    }
+    drawTempRoad()
   }
 }

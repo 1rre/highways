@@ -13,18 +13,15 @@ case class Bezier(x1: Double, y1: Double, xc: Double, yc: Double, x2: Double, y2
   //def dydt(t: Double): Double = 2*(t*y1 - 2*t*yc + t*y2 - y1 + yc)
   def dydx(t: Double) = dxdt(t) / dydt(t)
 
-  var i = 0
-
   private def searchClosestPoint(x: Double, y: Double, lo: Double, hi: Double): Double = {
     val step = (hi - lo) / NPts
-    i += 1
     val points = for (n <- 0 to NPts) yield {
       val t = lo + n * step
       val diff = hypot(x - xt(t), y - yt(t))
       (t, diff)
     }
     val t = points.minBy(_._2)._1
-    if (step < MaxDiff || i > 100) t
+    if (step < MaxDiff) t
     else searchClosestPoint(x, y, (t-step) max 0, (t+step) min 1)
   }
   
@@ -40,28 +37,15 @@ case class Bezier(x1: Double, y1: Double, xc: Double, yc: Double, x2: Double, y2
     dydx(t)
   }
 
+  // TODO: Look for points which have an intersection between them
   def intersectionsWith(that: Bezier): Seq[(Double, Double)] = {
-    println(s"Look for intersections between $this and $that")
-    val a = this.x1 - that.x1
-    val b1 = 2*(-this.x1 - this.xc + that.x1 + that.xc)
-    val b = b1 / a
-    val c1 = this.x1 + this.xc + this.x2 - that.x1 - that.xc - that.x2
-    val c = c1 / a
-    val sf = c / 2
-    val sider = -sf*sf - c
-    def yAreSame(p: Double): Option[(Double, Double)] = {
-      val yp1 = this.yt(p)
-      val yp2 = that.yt(p)
-      if (yp1 - yp2 < 1e-5) Some((xt(p), yp1)) else None
+    // this.xt(t) = that.xt(t) && this.yt(t) = that.yt(t)
+    // (1-t)²·a + 2t(1-t)·b + t²­·c = (1-u)²·d + 2u(1-u)·e + u²­·f
+    val maxStep = 100
+    for (x <- 0 to maxStep) {
+      val t = x / maxStep.toDouble
+
     }
-    if (sider > 0) {
-      // t = ± sqrt(sider)
-      val p1 = math.sqrt(sider)
-      val p2 = -p1
-      (yAreSame(p1) ++ yAreSame(p2)).toSeq
-    } else Nil
-    // t² + bt + c = 0
-    // 
-    //(t + x)(t + x) 
+    Nil
   }
 }
