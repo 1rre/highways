@@ -38,6 +38,11 @@ case class Bezier(x1: Double, y1: Double, xc: Double, yc: Double, x2: Double, y2
   }
 
   // TODO: Look for points which have an intersection between them
+  // A non-intersection when lines are very close will be due to either:
+  // * A change in direction (magnitude of dx/dt and/or dy/dt between roads 1 & 2 changes between the points)
+  // * A road ending
+  // Intersections can happen when:
+  // * x(t) for road 1 passes road 2 when y is close? (or y can be not close? Look into y)
   def intersectionsWith(that: Bezier): Seq[(Double, Double)] = {
     // this.xt(t) = that.xt(t) && this.yt(t) = that.yt(t)
     // (1-t)²·a + 2t(1-t)·b + t²­·c = (1-u)²·d + 2u(1-u)·e + u²­·f
